@@ -28,8 +28,8 @@ Original file is located at
 ## 依存ライブラリのインストール
 """
 
-!pip install -qU torch==1.7.1 torchtext==0.8.0 torchvision==0.8.2
-!pip install -q transformers==4.4.2 pytorch_lightning==1.2.1 sentencepiece
+#!pip install -qU torch==1.7.1 torchtext==0.8.0 torchvision==0.8.2
+#!pip install -q transformers==4.4.2 pytorch_lightning==1.2.1 sentencepiece
 
 """## 各種ディレクトリ作成
 
@@ -37,17 +37,18 @@ Original file is located at
 * model: 学習済みモデル格納用
 """
 
-!mkdir -p /content/data /content/model
+#!mkdir -p /content/data /content/model
 
 # 事前学習済みモデル
 PRETRAINED_MODEL_NAME = "sonoisa/t5-base-japanese"
 
 # 転移学習済みモデル
 MODEL_DIR = "/content/model"
+MODEL_DIR = "./model"
 
 """## livedoor ニュースコーパスのダウンロード"""
 
-!wget -O ldcc-20140209.tar.gz https://www.rondhuit.com/download/ldcc-20140209.tar.gz
+#!wget -O ldcc-20140209.tar.gz https://www.rondhuit.com/download/ldcc-20140209.tar.gz
 
 """## livedoorニュースコーパスの形式変換
 
@@ -66,7 +67,7 @@ TSVファイルは/content/dataに格納されます。
 """
 
 # https://github.com/neologd/mecab-ipadic-neologd/wiki/Regexp.ja から引用・一部改変
-from __future__ import unicode_literals
+#from __future__ import unicode_literals
 import re
 import unicodedata
 
@@ -227,7 +228,7 @@ with open(f"data/train.tsv", "w", encoding="utf-8") as f_train, \
 形式: {タイトル}\t{本文}\t{ジャンルID}
 """
 
-!head -3 data/test.tsv
+#!head -3 data/test.tsv
 
 """# 学習に必要なクラス等の定義
 
@@ -273,7 +274,8 @@ USE_GPU = torch.cuda.is_available()
 
 # 各種ハイパーパラメータ
 args_dict = dict(
-    data_dir="/content/data",  # データセットのディレクトリ
+#    data_dir="/content/data",  # データセットのディレクトリ
+    data_dir="./data",  # データセットのディレクトリ
     model_name_or_path=PRETRAINED_MODEL_NAME,
     tokenizer_name_or_path=PRETRAINED_MODEL_NAME,
 
@@ -397,7 +399,10 @@ PyTorch-Lightningとは、機械学習の典型的な処理を簡潔に書くこ
 class T5FineTuner(pl.LightningModule):
     def __init__(self, hparams):
         super().__init__()
-        self.hparams = hparams
+        try:
+            self.hparams = hparams
+        except AttributeError:
+            self.save_hyperparameters(hparams)
 
         # 事前学習済みモデルの読み込み
         self.model = T5ForConditionalGeneration.from_pretrained(hparams.model_name_or_path)
