@@ -585,7 +585,7 @@ if USE_GPU:
 """# 全テストデータの本文に対するタイトル生成"""
 
 import textwrap
-from tqdm.auto import tqdm
+from tqdm import tqdm
 from sklearn import metrics
 
 # テストデータの読み込み
