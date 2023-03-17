@@ -41,8 +41,10 @@ class Args:
 
     seed: int = 42
 
-    train: bool = True
-    eval: bool = True
+#    train: bool # = True
+#    eval: bool  # = True
+    no_train: bool # = True
+    no_eval: bool  # = True
     
     max_input_length: int = 512
     max_target_length: int = 64
@@ -50,9 +52,6 @@ class Args:
     train_batch_size: int = 8
     eval_batch_size: int = 8
     num_train_epochs: int = 10
-
-    model_name_or_path: str = 'sonoisa/t5-base-japanese'
-
 
     learning_rate: float = 3e-4
     weight_decay: float = 0.0
@@ -277,7 +276,7 @@ class T5FineTuner(pl.LightningModule):
                           batch_size=self.hparams.eval_batch_size, 
                           num_workers=4)
 
-if conf.train:
+if not conf.no_train:
     tokenizer = T5Tokenizer.from_pretrained(conf.tokenizer_name_or_path if conf.tokenizer_name_or_path is not None else conf.model_name_or_path, is_fast=True)
 
     # 訓練データセットの読み込み(トークン化を済ませておく)
@@ -332,7 +331,7 @@ if conf.train:
     del model
 
 
-if conf.eval:
+if not conf.no_eval:
     tokenizer = T5Tokenizer.from_pretrained(conf.model_dir, is_fast=True)
     trained_model = T5ForConditionalGeneration.from_pretrained(conf.model_dir)
 
@@ -343,8 +342,9 @@ if conf.eval:
     import textwrap
     from tqdm import tqdm
     from sklearn import metrics
-
-    test_dataset = TsvDataset(tokenizer, args_dict["data_dir"], "test.tsv", 
+    import collections
+    
+    test_dataset = TsvDataset(tokenizer, conf.data_dir, "test.tsv", 
                               input_max_len=conf.max_input_length, 
                               target_max_len=conf.max_target_length)
 
@@ -356,6 +356,17 @@ if conf.eval:
     outputs = []
     targets = []
     qaids = []
+
+    predictions = collections.OrderedDict()
+
+    def untokenize(ids):
+        token_texts = [tokenizer.decode([id], skip_special_tokens=True).strip() for id in ids]
+        token_texts = [t for t in token_texts if t != ""]
+        return token_texts
+
+    # 注意: JSQuADのF1値計算の都合で、トークンの間に半角空白を入れた文字列に変換する。
+    def decode_to_whitespace_delimited_tokens(sequences):
+        return [" ".join(untokenize(ids.cpu().tolist())).strip() for ids in sequences]
 
     for batch in tqdm(test_loader):
         input_ids = batch['source_ids']
@@ -387,61 +398,18 @@ if conf.eval:
         targets.extend(target_text)
         qaids.extend(qa_ids)
 
-    for output, target, input, qa_id in zip(outputs, targets, inputs, qaids):
-        print("qa_id     : " + qa_id)
-        print("generated : " + output)
-        print("target    : " + target)
-        print("input     : " + input)
-        print()
+        ##
+#        dec = decode_to_whitespace_delimited_tokens(output.sequences)
+#        target = decode_to_whitespace_delimited_tokens(batch["target_ids"])
+#
+#        for qa_id, output in zip(qa_ids, dec):
+#            predictions[qa_id] = output
 
-    if True:
-        import textwrap
-        from tqdm.auto import tqdm
-        from sklearn import metrics
-        import collections
+    with open('output.tsv', 'wt') as f:
+        for output, target, input, qa_id in zip(outputs, targets, inputs, qaids):
+            f.write(f'{qa_id}\t{input}\t{target}\t{output}\n')
 
-        test_dataset = TsvDataset(tokenizer, args_dict["data_dir"], "test.tsv", 
-                                input_max_len=conf.max_input_length, 
-                                target_max_len=conf.max_target_length)
-
-        test_loader = DataLoader(test_dataset, batch_size=8, num_workers=4)
-
-        predictions = collections.OrderedDict()
-        outputs = []
-        targets = []
-
-        def untokenize(ids):
-            token_texts = [tokenizer.decode([id], skip_special_tokens=True).strip() for id in ids]
-            token_texts = [t for t in token_texts if t != ""]
-            return token_texts
-
-        # 注意: JSQuADのF1値計算の都合で、トークンの間に半角空白を入れた文字列に変換する。
-        def decode_to_whitespace_delimited_tokens(sequences):
-            return [" ".join(untokenize(ids.cpu().tolist())).strip() for ids in sequences]
-
-        for batch in tqdm(test_loader):
-            input_ids = batch['source_ids']
-            input_mask = batch['source_mask']
-            qa_ids = batch['qa_id']
-            if USE_GPU:
-                input_ids = input_ids.cuda()
-                input_mask = input_mask.cuda()
-
-            outs = trained_model.generate(input_ids=input_ids, 
-                attention_mask=input_mask, 
-                max_length=conf.max_target_length,
-                return_dict_in_generate=True,
-                output_scores=True)
-
-            dec = decode_to_whitespace_delimited_tokens(outs.sequences)
-            target = decode_to_whitespace_delimited_tokens(batch["target_ids"])
-
-            outputs.extend(dec)
-            targets.extend(target)
-
-            for qa_id, output in zip(qa_ids, dec):
-                predictions[qa_id] = output
-
+    if False:
         from transformers.data.metrics.squad_metrics import squad_evaluate
         from transformers.data.processors.squad import SquadV2Processor
 
@@ -457,4 +425,4 @@ if conf.eval:
         print(f"EM: {results['exact']}\nF1: {results['f1']}")
 
     # 後始末
-    del model
+
