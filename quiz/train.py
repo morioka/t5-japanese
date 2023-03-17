@@ -60,21 +60,27 @@ class Args:
     gradient_accumulation_steps: int = 1
 
     n_gpu: int = 1 if USE_GPU else 0
-    early_stop_callback: bool =False
-    fp_16: bool =True
+    early_stop_callback: bool   # =False
+    fp_16: bool # =False
     opt_level: str = 'O1'
     max_grad_norm: float =1.0
 
     # 推論時
-    temperature: float = 1.0           # 生成にランダム性を入れる温度パラメータ
-    repetition_penalty: float = 1.5    # 同じ文の繰り返し（モード崩壊）へのペナルティ
-    num_beams: int = 10                # ビームサーチの探索幅
-    diversity_penalty: float = 1.0     # 生成結果の多様性を生み出すためのペナルティ
-    num_beam_groups: int = 10          # ビームサーチのグループ数
-    num_return_sequences: int = 10     # 生成する文の数
+    # https://huggingface.co/docs/transformers/main_classes/text_generation
+    # https://huggingface.co/docs/transformers/generation_strategies
+    temperature: float = 1.0           # 生成にランダム性を入れる温度パラメータ  (float, optional, defaults to 1.0) — The value used to modulate the next token probabilities.
+    repetition_penalty: float = 1.5    # 同じ文の繰り返し（モード崩壊）へのペナルティ   (float, optional, defaults to 1.0) — The parameter for repetition penalty. 1.0 means no penalty. See this paper for more details.
+#    num_beams: int = 10                # ビームサーチの探索幅   (int, optional, defaults to 1) — Number of beams for beam search. 1 means no beam search.
+#    diversity_penalty: float = 1.0     # 生成結果の多様性を生み出すためのペナルティ    (float, optional, defaults to 0.0) — This value is subtracted from a beam’s score if it generates a token same as any beam from other group at a particular time. Note that diversity_penalty is only effective if group beam search is enabled.
+#    num_beam_groups: int = 10          # ビームサーチのグループ数  (int, optional, defaults to 1) — Number of groups to divide num_beams into in order to ensure diversity among different groups of beams. this paper for more details.
+#    num_return_sequences: int = 10     # 生成する文の数
+
+    verbose: bool = False               # デバグ用：引数を出力
+
 
 conf: Args = Args.from_args()
-print(conf)
+if conf.verbose:
+    print(conf)
 
 
 # 乱数シードの設定
@@ -201,17 +207,17 @@ class T5FineTuner(pl.LightningModule):
 
     def training_step(self, batch, batch_idx):
         loss = self._step(batch)
-        self.log("train_loss", loss)
+        self.log("train_loss", loss, batch_size=conf.train_batch_size)
         return {"loss": loss}
 
     def validation_step(self, batch, batch_idx):
         loss = self._step(batch)
-        self.log("val_loss", loss)
+        self.log("val_loss", loss, batch_size=conf.eval_batch_size)
         return {"val_loss": loss}
 
     def test_step(self, batch, batch_idx):
         loss = self._step(batch)
-        self.log("test_loss", loss)
+        self.log("test_loss", loss, batch_size=conf.eval_batch_size)
         return {"test_loss": loss}
 
     def configure_optimizers(self):
@@ -381,7 +387,9 @@ if not conf.no_eval:
             max_length=conf.max_target_length,
             temperature=conf.temperature,
             repetition_penalty=conf.repetition_penalty,
-            )
+            #return_dict_in_generate=True,  # t5_JSQuAD.ipynb にはある
+            #output_scores=True             # t5_JSQuAD.ipynb にはある
+        )
 
         output_text = [tokenizer.decode(ids, skip_special_tokens=True, 
                                    clean_up_tokenization_spaces=False) 
@@ -399,15 +407,41 @@ if not conf.no_eval:
         qaids.extend(qa_ids)
 
         ##
-#        dec = decode_to_whitespace_delimited_tokens(output.sequences)
-#        target = decode_to_whitespace_delimited_tokens(batch["target_ids"])
-#
-#        for qa_id, output in zip(qa_ids, dec):
-#            predictions[qa_id] = output
+        #dec = decode_to_whitespace_delimited_tokens(output.sequences)
+        #target = decode_to_whitespace_delimited_tokens(batch["target_ids"])
+        #
+        #for qa_id, output in zip(qa_ids, dec):
+        #   predictions[qa_id] = output
 
-    with open('output.tsv', 'wt') as f:
+    # 一覧出力
+    with open('output.tsv', 'w') as f:
+        f.write('qa_id\tinput\ttarget\toutput\n')
         for output, target, input, qa_id in zip(outputs, targets, inputs, qaids):
             f.write(f'{qa_id}\t{input}\t{target}\t{output}\n')
+
+    # ExactMatch: 文字列が完全一致した割合
+    results = {
+        "exact": np.array([ o == t for (o, t) in zip(outputs, targets)]).sum() / len(outputs)
+    }
+
+    # https://www.ogis-ri.co.jp/otc/hiroba/technical/similar-document-search/part14.html
+    from sacrebleu import corpus_bleu
+
+    def bleu(predictions, references):
+        references = [references]
+        bleu_score = corpus_bleu(predictions, references,      
+                                     smooth_method="exp",
+                                     smooth_value=0.0,
+                                     force=False,
+                                     lowercase=False,
+                                     tokenize="ja-mecab",
+                                     use_effective_order=False)
+        return bleu_score.score
+
+    # BLEU: n-gram 一致数を基にした機械翻訳の自動評価指標の一つ
+    results['bleu'] = bleu(outputs, targets)
+
+    print(f"EM: {results['exact']}\nBLEU: {results['bleu']}")
 
     if False:
         from transformers.data.metrics.squad_metrics import squad_evaluate

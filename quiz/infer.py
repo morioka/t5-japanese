@@ -31,6 +31,8 @@ class Args:
 
     bad_words: list[str] = None
 
+    verbose: bool = False               # デバグ用：引数を出力
+
 
 def normalize_text(text):
     text = text.strip()
@@ -54,7 +56,8 @@ def set_seed(seed):
 
 def main():
     conf: Args = Args.from_args()
-    print(conf)
+    if conf.verbose:
+        print(conf)
 
     # answer = "富士山"
     # context = "富士山は静岡県と山梨県にまたがっている山です。"

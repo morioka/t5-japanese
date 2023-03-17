@@ -1,21 +1,24 @@
 
 # t5のファインチューニング
 
+今までの反省から
+
 - 簡単のため、データの準備段階で入力を整形しておく。プロンプト込みの状態
   - TODO：　キーとプロンプトを指定できれば、任意の形にできるだろう
 - データ整形は、改行除去 + NFKC正規化 + neologdn
   - 小文字そろえしない
+    - 固有名詞でなければ、製品名でなければ、小文字そろえしてもよいが
+  - TODO: かっこの除去はやってよいかも
 - 入出力データ形式の変更。
   - TSVはそのまま
   - 旧形式は"{question}\t{answer}\t{context}"
   - 形式は"{QA_ID}\tquestion: {question} context: {context}\t{answer}"
     - QA_IDをキーとしたい
 
-
 ## コード
 
 - download.sh   : データセットのダウンロード
-- prepare_data_jsquad_qa.py : JGLUE/JSQuAD を qa用TSVに加工
+- prepare_jsquad.py : JGLUE/JSQuAD を qa用TSVに加工
   - qid, "question: {question} context: {passage}", answer
 - train.py
 - predict.py : text2text-generation パイプラインを呼ぶだけ
@@ -33,7 +36,7 @@ JSQuAD QA
 
 ```bash
 download.sh
-python prepare_data_jsquad_qa.py
+python prepare_jsquad.py
 python train.py
 ```
 
@@ -45,8 +48,8 @@ JSQuAD AQG
 
 ```bash
 download.sh
-python prepare_data_jsquad_aqg.py
-python train.py max_target_length=128
+python prepare_jsquad_aqg.py
+python train.py --max_target_length 128
 ```
 
 quiz  AQG
@@ -57,7 +60,7 @@ quiz  AQG
 
 ```bashd
 python prepare_quiz_aqg.py
-python train.py max_target_length=128
+python train.py --max_target_length 128
 ```
 
 quiz  AQG-HL    
@@ -77,8 +80,11 @@ quiz  AQG-HL
 
 ```bash
 python prepare_quiz_aqg_hl.py
-python train.py max_target_length=128
+python train.py --max_target_length 128
 ```
+
+3/17 現状。fp_16=Trueだとnan。fp_16=Falseだとよい。
+
 
 ## 評価
 
@@ -87,22 +93,28 @@ TODO:
 - トークンまたは単語単位での比較が必要で、T5tokenizer、mecab, sudachi(A? B? C?)のそれぞれで区切って比較する。
 
 ---
-sonoisaだけでなくpatil-surajのこれか。これをもとにする。
-https://github.com/patil-suraj/question_generation
-https://github.com/patil-suraj/exploring-T5/blob/master/t5_fine_tuning.ipynb
 
-そのあと、損失に手を入れられるよう、pytorch lightning依存をなくす。
+`model_name_or_path` でなく `model_dir` を読む
+
+```bash
+python train.py --no_train --model_dir model
+```
 
 
 ## 推論
 
-```bash
-python predict.py
-```
+※ AQG専用
 
 ```bash
-python predict.py --help
+python infer.py
+
+python infer.py --answer 甲府市 --context 山梨県の県庁所在地は甲府市です。
+#山梨県の県庁所在地はどこですか?
+python infer.py --answer 甲府市 --context 山梨県の県庁所在地は甲府市です。 --bad_words 山梨 山梨県
+#中部地方の県庁所在地はどこですか?
 ```
+
+## 環境設定
 
 ```bash
 # python-3.10.8
@@ -110,6 +122,7 @@ pip install -qU pip wheel
 pip install -qU neologdn pandas numpy scikit-learn tqdm classopt
 pip install -qU torch torchtext torchvision torchaudio
 pip install -qU transformers pytorch-lightning sentencepiece protobuf==3.20.0
+pip install -qU sacrebleu[ja]
 ```
 
 ```
@@ -132,3 +145,23 @@ tqdm                     4.65.0
 transformers             4.27.1
 wheel                    0.40.0
 ```
+
+## 履歴
+
+- 3/16  全面的に書き直し
+- 3/17  omegaconfとargparse併用から omegaconf単体へ。さらにclassopt
+  - classoptの場合、notebookなどからの利用が不可?
+
+## TODO
+
+- pytorch_lightningから脱却。素直なループに変更する。
+  - 損失を自由に定義できるように
+  - これにならう https://github.com/hppRC/bert-classification-tutorial
+- いくつか不足のところがありそう
+  - sonoisaだけでなくpatil-surajのこれか。これをもとにする。
+    - https://github.com/patil-suraj/question_generation
+    - https://github.com/patil-suraj/exploring-T5/blob/master/t5_fine_tuning.ipynb
+- best (== val_loss最小)のモデルを保存するよう。評価でもそれを用いるよう
+  - https://github.com/hppRC/bert-classification-tutorial/blob/main/src/train.py
+
+

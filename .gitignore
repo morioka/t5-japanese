@@ -134,3 +134,4 @@ quiz/JGLUE-1.1.0/
 quiz/model/
 quiz/lightning_logs/
 requirements.txt.old
+quiz/output.tsv
