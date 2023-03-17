@@ -92,9 +92,8 @@ TODO:
 - sumevalを使っていたが、huggingface datasets metrics か huggingface evaluateを使うように。
 - トークンまたは単語単位での比較が必要で、T5tokenizer、mecab, sudachi(A? B? C?)のそれぞれで区切って比較する。
 
----
-
-`model_name_or_path` でなく `model_dir` を読む
+- `model_name_or_path` でなく `model_dir` を読む
+- ExactMatch と sacrebleu[ja]による BLEU
 
 ```bash
 python train.py --no_train --model_dir model
@@ -167,6 +166,10 @@ wheel                    0.40.0
     - https://github.com/patil-suraj/exploring-T5/blob/master/t5_fine_tuning.ipynb
 - best (== val_loss最小)のモデルを保存するよう。評価でもそれを用いるよう
   - https://github.com/hppRC/bert-classification-tutorial/blob/main/src/train.py
+
+
+- ROUGEの実装と
+- 普通のループで損失を生に出すところだな。
 
 ## ハルシーネーション
 
