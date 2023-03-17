@@ -309,6 +309,13 @@ if True:
         "train_batch_size":  conf.train_batch_size,  # 訓練時のバッチサイズ
         "eval_batch_size":   conf.eval_batch_size,  # テスト時のバッチサイズ
         "num_train_epochs":  conf.num_train_epochs,  # 訓練するエポック数
+
+        'temperature':  conf.temperature,            # 生成にランダム性を入れる温度パラメータ
+        'repetition_penalty': conf.repetition_penalty,      # 同じ文の繰り返し（モード崩壊）へのペナルティ
+        'num_beams': conf.num_beams,                # ビームサーチの探索幅
+        'diversity_penalty': conf.diversity_penalty,       # 生成結果の多様性を生み出すためのペナルティ
+        'num_beam_groups': conf.num_beam_groups,          # ビームサーチのグループ数
+        'num_return_sequences': conf.num_return_sequences,     # 生成する文の数
         })
     args = argparse.Namespace(**args_dict)
 
@@ -418,8 +425,8 @@ if conf.eval:
         targets.extend(target_text)
         qaids.extend(qa_ids)
 
-    for output, target, input in zip(outputs, targets, inputs, qaids):
-        print("qa_id     : " + output)
+    for output, target, input, qa_id in zip(outputs, targets, inputs, qaids):
+        print("qa_id     : " + qa_id)
         print("generated : " + output)
         print("target    : " + target)
         print("input     : " + input)
