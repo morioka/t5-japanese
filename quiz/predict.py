@@ -3,7 +3,6 @@
 import random
 from omegaconf import OmegaConf
 
-import argparse
 import random
 
 import numpy as np
@@ -14,8 +13,8 @@ import neologdn
 
 
 dict_conf = {
-    'pretrained_model_name': 'sonoisa/t5-base-japanese-question-generation',
-#    'data_dir': 'data',
+    'model_name_or_path': 'sonoisa/t5-base-japanese-question-generation',
+    'tokenizer_name_or_path': None,
     'seed': 42,
     
     'max_input_length': 512,
@@ -27,6 +26,11 @@ dict_conf = {
     'diversity_penalty': 1.0,       # 生成結果の多様性を生み出すためのペナルティ
     'num_beam_groups': 10,          # ビームサーチのグループ数
     'num_return_sequences': 10,     # 生成する文の数
+
+    "answer": "富士山",
+    "context": "富士山は静岡県と山梨県にまたがっている山です。",
+
+    "bad_words": None,              # 禁句
 }
 
 def normalize_text(text):
@@ -55,56 +59,44 @@ def main():
     conf = OmegaConf.merge(base_conf, cli_conf)
     print(conf)
 
-    # 事前学習済みモデル
-    PRETRAINED_MODEL_NAME = conf.pretrained_model_name
-
-    # 各種ハイパーパラメータ
-    args_dict = dict(
-        model_name_or_path=PRETRAINED_MODEL_NAME,
-        tokenizer_name_or_path=PRETRAINED_MODEL_NAME,
-
-        seed=conf.seed,
-
-        max_input_length=conf.max_input_length,
-        max_target_length=conf.max_target_length,
-
-        temperature=conf.temperature,
-        repetition_penalty=conf.repetition_penalty,
-        num_beams=conf.num_beams,
-        diversity_penalty=conf.diversity_penalty,
-        num_beam_groups=conf.num_beam_groups,
-        num_return_sequences=conf.num_return_sequences,
-    )
-    args = argparse.Namespace(**args_dict)
-
-    set_seed(args.seed)
+    set_seed(conf.seed)
 
     text2text_question_generaton_prompt = "answer: {answer} context: {context}"
 
-    answer = "富士山"
-    context = "富士山は静岡県と山梨県にまたがっている山です。"
+#    answer = "富士山"
+#    context = "富士山は静岡県と山梨県にまたがっている山です。"
 
+    answer = conf.answer
+    context = conf.context
+
+    # 前処理
     answer = normalize_text(answer.replace("\n", " "))
     context = normalize_text(context.replace("\n", " "))
 
-    text2text_generator = pipeline("text2text-generation", model=PRETRAINED_MODEL_NAME)
+    text2text_generator = pipeline("text2text-generation",
+        model=conf.model_name_or_path,
+        tokenizer=conf.tokenizer_name_or_path if conf.tokenizer_name_or_path is not None else conf.model_name_or_path)
 
     # 単純な禁句処理
-    bad_words = [answer]    # 類義語や言い換え、一部の表記抜けや過剰な表記を考慮すべき。外部注入させる?
+    if conf.bad_words is None:
+        bad_words = [answer]    # 類義語や言い換え、一部の表記抜けや過剰な表記を考慮すべき。外部から指定させる?
+    else:
+        bad_words = conf.bad_words  # List[str] の型チェックは必要だろう
     bad_words_ids = [text2text_generator.tokenizer(bad_word, add_special_tokens=False).input_ids[1:] for bad_word in bad_words]
     if len(bad_words_ids) == 0:
         bad_words_ids = None
 
+    # 生成
     generated = text2text_generator(
                     text2text_question_generaton_prompt.format(answer=answer, context=context),
                     # 以下、 generate() への入力
-                    max_length=args.max_target_length ,
-                    temperature=args.temperature,
-                    num_beams=args.num_beams,
-                    diversity_penalty=args.diversity_penalty,
-                    num_beam_groups=args.num_beam_groups,
-                    num_return_sequences=args.num_return_sequences,
-                    repetition_penalty=args.repetition_penalty,
+                    max_length=conf.max_target_length ,
+                    temperature=conf.temperature,
+                    num_beams=conf.num_beams,
+                    diversity_penalty=conf.diversity_penalty,
+                    num_beam_groups=conf.num_beam_groups,
+                    num_return_sequences=conf.num_return_sequences,
+                    repetition_penalty=conf.repetition_penalty,
                     bad_words_ids=bad_words_ids
                 )[0]['generated_text']
 
@@ -112,3 +104,40 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+"""
+(t5-japanese) morioka@legion:~/aio/morioka/t5-japanese/quiz$ python ./predict.py answer=山梨県
+{'model_name_or_path': 'sonoisa/t5-base-japanese-question-generation', 'tokenizer_name_or_path': None, 'seed': 42, 'max_input_length': 512, 'max_target_length': 64, 'temperature': 1.0, 'repetition_penalty': 1.5, 'num_beams': 10, 'diversity_penalty': 1.0, 'num_beam_groups': 10, 'num_return_sequences': 10, 'answer': '山梨県', 'context': '富士山は静岡県と山梨県にまたがっている山です。'}
+answer: 山梨県
+context: 富士山は静岡県と山梨県にまたがっている山です。
+静岡県と他のどの県にまたがっている富士山ですか?
+(t5-japanese) morioka@legion:~/aio/morioka/t5-japanese/quiz$ python ./predict.py answer=山梨県 context=山梨県の県庁所在地は甲府市です。
+{'model_name_or_path': 'sonoisa/t5-base-japanese-question-generation', 'tokenizer_name_or_path': None, 'seed': 42, 'max_input_length': 512, 'max_target_length': 64, 'temperature': 1.0, 'repetition_penalty': 1.5, 'num_beams': 10, 'diversity_penalty': 1.0, 'num_beam_groups': 10, 'num_return_sequences': 10, 'answer': '山梨県', 'context': '山梨県の県庁所在地は甲府市です。'}
+answer: 山梨県
+context: 山梨県の県庁所在地は甲府市です。
+どの県が県庁所在地ですか
+(t5-japanese) morioka@legion:~/aio/morioka/t5-japanese/quiz$ python ./predict.py answer=山梨県 context="山梨県の県庁所在地は甲府市です。"
+{'model_name_or_path': 'sonoisa/t5-base-japanese-question-generation', 'tokenizer_name_or_path': None, 'seed': 42, 'max_input_length': 512, 'max_target_length': 64, 'temperature': 1.0, 'repetition_penalty': 1.5, 'num_beams': 10, 'diversity_penalty': 1.0, 'num_beam_groups': 10, 'num_return_sequences': 10, 'answer': '山梨県', 'context': '山梨県の県庁所在地は甲府市です。'}
+answer: 山梨県
+context: 山梨県の県庁所在地は甲府市です。
+どの県が県庁所在地ですか
+(t5-japanese) morioka@legion:~/aio/morioka/t5-japanese/quiz$ python ./predict.py answer=甲府市 context="山梨県の県庁所在地は甲府市です。"
+{'model_name_or_path': 'sonoisa/t5-base-japanese-question-generation', 'tokenizer_name_or_path': None, 'seed': 42, 'max_input_length': 512, 'max_target_length': 64, 'temperature': 1.0, 'repetition_penalty': 1.5, 'num_beams': 10, 'diversity_penalty': 1.0, 'num_beam_groups': 10, 'num_return_sequences': 10, 'answer': '甲府市', 'context': '山梨県の県庁所在地は甲府市です。'}
+answer: 甲府市
+context: 山梨県の県庁所在地は甲府市です。
+山梨県の県庁所在地はどこですか?
+(t5-japanese) morioka@legion:~/aio/morioka/t5-japanese/quiz$ python ./predict.py answer=甲府市 context="山梨県の県庁所在地は甲府市です。" bad_words=['山梨県']
+{'model_name_or_path': 'sonoisa/t5-base-japanese-question-generation', 'tokenizer_name_or_path': None, 'seed': 42, 'max_input_length': 512, 'max_target_length': 64, 'temperature': 1.0, 'repetition_penalty': 1.5, 'num_beams': 10, 'diversity_penalty': 1.0, 'num_beam_groups': 10, 'num_return_sequences': 10, 'answer': '甲府市', 'context': '山梨県の県庁所在地は甲府市です。', 'bad_words': ['山梨県']}
+['山梨県']
+山梨の県庁所在地はどこですか
+(t5-japanese) morioka@legion:~/aio/morioka/t5-japanese/quiz$ python ./predict.py answer=甲府市 context="山梨県の県庁所在地は甲府市です。" bad_words=['山梨']
+{'model_name_or_path': 'sonoisa/t5-base-japanese-question-generation', 'tokenizer_name_or_path': None, 'seed': 42, 'max_input_length': 512, 'max_target_length': 64, 'temperature': 1.0, 'repetition_penalty': 1.5, 'num_beams': 10, 'diversity_penalty': 1.0, 'num_beam_groups': 10, 'num_return_sequences': 10, 'answer': '甲府市', 'context': '山梨県の県庁所在地は甲府市です。', 'bad_words': ['山梨']}
+['山梨']
+山梨県の県庁所在地はどこですか?
+(t5-japanese) morioka@legion:~/aio/morioka/t5-japanese/quiz$ python ./predict.py answer=甲府市 context="山梨県の県庁所在地は甲府市です。" bad_words=['山梨','山梨県']
+{'model_name_or_path': 'sonoisa/t5-base-japanese-question-generation', 'tokenizer_name_or_path': None, 'seed': 42, 'max_input_length': 512, 'max_target_length': 64, 'temperature': 1.0, 'repetition_penalty': 1.5, 'num_beams': 10, 'diversity_penalty': 1.0, 'num_beam_groups': 10, 'num_return_sequences': 10, 'answer': '甲府市', 'context': '山梨県の県庁所在地は甲府市です。', 'bad_words': ['山梨', '山梨県']}
+['山梨', '山梨県']
+中部地方の県庁所在地はどこですか?
+(t5-japanese) morioka@legion:~/aio/morioka/t5-japanese/quiz$ 
+"""
