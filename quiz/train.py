@@ -1,56 +1,14 @@
 # -*- coding: utf-8 -*-
 
-import pandas as pd
 import random
 from tqdm import tqdm
-from omegaconf import OmegaConf
 
-dict_conf = {
-    'pretrained_model_name': 'sonoisa/t5-base-japanese',
-    'model_dir': 'model',
-    'data_dir': 'data',
-    'seed': 42,
-
-    'train': True,
-    'eval': True,
-    
-    'max_input_length': 512,
-    'max_target_length': 64,
-    'train_batch_size': 8,
-    'eval_batch_size': 8,
-    'num_train_epochs': 10,
-
-    'temperature':  1.0,            # 生成にランダム性を入れる温度パラメータ
-    'repetition_penalty': 1.5,      # 同じ文の繰り返し（モード崩壊）へのペナルティ
-    'num_beams': 10,                # ビームサーチの探索幅
-    'diversity_penalty': 1.0,       # 生成結果の多様性を生み出すためのペナルティ
-    'num_beam_groups': 10,          # ビームサーチのグループ数
-    'num_return_sequences': 10,     # 生成する文の数
-}
-
-base_conf = OmegaConf.create(dict_conf)
-cli_conf = OmegaConf.from_cli()
-conf = OmegaConf.merge(base_conf, cli_conf)
-print(conf)
-
-
-# 事前学習済みモデル
-PRETRAINED_MODEL_NAME = conf.pretrained_model_name
-
-# 転移学習済みモデル
-MODEL_DIR = conf.model_dir
-
+from classopt import classopt
 
 import argparse
 import glob
 import os
-import json
-import time
-import logging
 import random
-import re
-from itertools import chain
-from string import punctuation
 
 import numpy as np
 import torch
@@ -65,6 +23,61 @@ from transformers import (
     get_linear_schedule_with_warmup
 )
 
+import unicodedata
+import neologdn
+
+
+# GPU利用有無
+USE_GPU = torch.cuda.is_available()
+
+@classopt(default_long=True, default_short=False)
+class Args:
+#    pretrained_model_name: str = 'sonoisa/t5-base-japanese'
+    model_name_or_path: str = 'sonoisa/t5-base-japanese'
+    tokenizer_name_or_path: str = None
+
+    model_dir: str = 'model'
+    data_dir: str = 'data'
+
+    seed: int = 42
+
+    train: bool = True
+    eval: bool = True
+    
+    max_input_length: int = 512
+    max_target_length: int = 64
+
+    train_batch_size: int = 8
+    eval_batch_size: int = 8
+    num_train_epochs: int = 10
+
+    model_name_or_path: str = 'sonoisa/t5-base-japanese'
+
+
+    learning_rate: float = 3e-4
+    weight_decay: float = 0.0
+    adam_epsilon: float = 1e-8
+    warmup_steps: int = 0
+    gradient_accumulation_steps: int = 1
+
+    n_gpu: int = 1 if USE_GPU else 0
+    early_stop_callback: bool =False
+    fp_16: bool =True
+    opt_level: str = 'O1'
+    max_grad_norm: float =1.0
+
+    # 推論時
+    temperature: float = 1.0           # 生成にランダム性を入れる温度パラメータ
+    repetition_penalty: float = 1.5    # 同じ文の繰り返し（モード崩壊）へのペナルティ
+    num_beams: int = 10                # ビームサーチの探索幅
+    diversity_penalty: float = 1.0     # 生成結果の多様性を生み出すためのペナルティ
+    num_beam_groups: int = 10          # ビームサーチのグループ数
+    num_return_sequences: int = 10     # 生成する文の数
+
+conf: Args = Args.from_args()
+print(conf)
+
+
 # 乱数シードの設定
 def set_seed(seed):
     random.seed(seed)
@@ -75,44 +88,6 @@ def set_seed(seed):
 
 set_seed(conf.seed)
 
-
-# GPU利用有無
-USE_GPU = torch.cuda.is_available()
-
-# 各種ハイパーパラメータ
-args_dict = dict(
-    data_dir=conf.data_dir,  # データセットのディレクトリ
-    model_name_or_path=PRETRAINED_MODEL_NAME,
-    tokenizer_name_or_path=PRETRAINED_MODEL_NAME,
-
-    learning_rate=3e-4,
-    weight_decay=0.0,
-    adam_epsilon=1e-8,
-    warmup_steps=0,
-    gradient_accumulation_steps=1,
-
-    # max_input_length=512,
-    # max_target_length=64,
-    # train_batch_size=8,
-    # eval_batch_size=8,
-    # num_train_epochs=4,
-
-    n_gpu=1 if USE_GPU else 0,
-    early_stop_callback=False,
-    #fp_16=False,
-    fp_16=True,
-    opt_level='O1',
-    max_grad_norm=1.0,
-    seed=42,
-
-)
-
-import re
-import unicodedata
-
-import neologdn
-
-import json
 
 def normalize_text(text):
     text = text.strip()
@@ -271,10 +246,10 @@ class T5FineTuner(pl.LightningModule):
     def get_dataset(self, tokenizer, type_path, args):
         return TsvDataset(
             tokenizer=tokenizer, 
-            data_dir=args.data_dir, 
+            data_dir=conf.data_dir, 
             type_path=type_path, 
-            input_max_len=args.max_input_length,
-            target_max_len=args.max_target_length)
+            input_max_len=conf.max_input_length,
+            target_max_len=conf.max_target_length)
     
     def setup(self, stage=None):
         if stage == 'fit' or stage is None:
@@ -302,29 +277,11 @@ class T5FineTuner(pl.LightningModule):
                           batch_size=self.hparams.eval_batch_size, 
                           num_workers=4)
 
-if True:
-    args_dict.update({
-        "max_input_length":  conf.max_input_length,  # 入力文の最大トークン数
-        "max_target_length": conf.max_target_length,  # 出力文の最大トークン数
-        "train_batch_size":  conf.train_batch_size,  # 訓練時のバッチサイズ
-        "eval_batch_size":   conf.eval_batch_size,  # テスト時のバッチサイズ
-        "num_train_epochs":  conf.num_train_epochs,  # 訓練するエポック数
-
-        'temperature':  conf.temperature,            # 生成にランダム性を入れる温度パラメータ
-        'repetition_penalty': conf.repetition_penalty,      # 同じ文の繰り返し（モード崩壊）へのペナルティ
-        'num_beams': conf.num_beams,                # ビームサーチの探索幅
-        'diversity_penalty': conf.diversity_penalty,       # 生成結果の多様性を生み出すためのペナルティ
-        'num_beam_groups': conf.num_beam_groups,          # ビームサーチのグループ数
-        'num_return_sequences': conf.num_return_sequences,     # 生成する文の数
-        })
-    args = argparse.Namespace(**args_dict)
-
-
 if conf.train:
-    tokenizer = T5Tokenizer.from_pretrained(PRETRAINED_MODEL_NAME, is_fast=True)
+    tokenizer = T5Tokenizer.from_pretrained(conf.tokenizer_name_or_path if conf.tokenizer_name_or_path is not None else conf.model_name_or_path, is_fast=True)
 
-    # 訓練データセットの読み込み
-    train_dataset = TsvDataset(tokenizer, args_dict["data_dir"], "train.tsv", 
+    # 訓練データセットの読み込み(トークン化を済ませておく)
+    train_dataset = TsvDataset(tokenizer, conf.data_dir, "train.tsv", 
                                input_max_len=512, target_max_len=64)
 
     # チェックポイントほか
@@ -334,17 +291,25 @@ if conf.train:
         monitor="val_loss", mode="min", save_top_k=1
     )
 
+    # 学習用ハイパーパラメータを設定
     train_params = dict(
-        accumulate_grad_batches=args.gradient_accumulation_steps,
-        devices=args.n_gpu,
-        max_epochs=args.num_train_epochs,
-        precision= 16 if args.fp_16 else 32,
-        #amp_level=args.opt_level,
+        accumulate_grad_batches=conf.gradient_accumulation_steps,
+        devices=conf.n_gpu,
+        max_epochs=conf.num_train_epochs,
+        precision=16 if conf.fp_16 else 32,
+        #amp_level=conf.opt_level,
         #amp_backend='apex',
-        gradient_clip_val=args.max_grad_norm,
+        gradient_clip_val=conf.max_grad_norm,
         callbacks=[checkpoint_callback],    
     )
 
+    args_dict = conf.to_dict()
+    args_dict.update({
+        "tokenizer_name_or_path": conf.tokenizer_name_or_path if conf.tokenizer_name_or_path is not None else conf.model_name_or_path
+    })
+    args = argparse.Namespace(**args_dict)
+
+    # チェックポイントを見つける
     def find_latest_checkpoints(checkpoint_dir):
         ckpts = sorted(glob.glob(checkpoint_dir+"/*.ckpt"))
         if len(ckpts) == 0:
@@ -360,19 +325,16 @@ if conf.train:
     trainer.fit(model, ckpt_path=resume_ckpt)
 
     # 最終エポックのモデルを保存
-    model.tokenizer.save_pretrained(MODEL_DIR)
-    model.model.save_pretrained(MODEL_DIR)
+    model.tokenizer.save_pretrained(conf.model_dir)
+    model.model.save_pretrained(conf.model_dir)
 
+    # 後始末
     del model
 
 
 if conf.eval:
-    import torch
-    from torch.utils.data import Dataset, DataLoader
-    from transformers import T5ForConditionalGeneration, T5Tokenizer
-
-    tokenizer = T5Tokenizer.from_pretrained(MODEL_DIR, is_fast=True)
-    trained_model = T5ForConditionalGeneration.from_pretrained(MODEL_DIR)
+    tokenizer = T5Tokenizer.from_pretrained(conf.model_dir, is_fast=True)
+    trained_model = T5ForConditionalGeneration.from_pretrained(conf.model_dir)
 
     USE_GPU = torch.cuda.is_available()
     if USE_GPU:
@@ -383,8 +345,8 @@ if conf.eval:
     from sklearn import metrics
 
     test_dataset = TsvDataset(tokenizer, args_dict["data_dir"], "test.tsv", 
-                              input_max_len=args.max_input_length, 
-                              target_max_len=args.max_target_length)
+                              input_max_len=conf.max_input_length, 
+                              target_max_len=conf.max_target_length)
 
     test_loader = DataLoader(test_dataset, batch_size=8, num_workers=4)
 
@@ -405,9 +367,9 @@ if conf.eval:
 
         output = trained_model.generate(input_ids=input_ids, 
             attention_mask=input_mask, 
-            max_length=args.max_target_length,
-            temperature=args.temperature,
-            repetition_penalty=args.repetition_penalty,
+            max_length=conf.max_target_length,
+            temperature=conf.temperature,
+            repetition_penalty=conf.repetition_penalty,
             )
 
         output_text = [tokenizer.decode(ids, skip_special_tokens=True, 
@@ -439,8 +401,8 @@ if conf.eval:
         import collections
 
         test_dataset = TsvDataset(tokenizer, args_dict["data_dir"], "test.tsv", 
-                                input_max_len=args.max_input_length, 
-                                target_max_len=args.max_target_length)
+                                input_max_len=conf.max_input_length, 
+                                target_max_len=conf.max_target_length)
 
         test_loader = DataLoader(test_dataset, batch_size=8, num_workers=4)
 
@@ -467,7 +429,7 @@ if conf.eval:
 
             outs = trained_model.generate(input_ids=input_ids, 
                 attention_mask=input_mask, 
-                max_length=args.max_target_length,
+                max_length=conf.max_target_length,
                 return_dict_in_generate=True,
                 output_scores=True)
 
@@ -479,7 +441,6 @@ if conf.eval:
 
             for qa_id, output in zip(qa_ids, dec):
                 predictions[qa_id] = output
-
 
         from transformers.data.metrics.squad_metrics import squad_evaluate
         from transformers.data.processors.squad import SquadV2Processor
@@ -495,6 +456,5 @@ if conf.eval:
         results = squad_evaluate(examples, predictions)
         print(f"EM: {results['exact']}\nF1: {results['f1']}")
 
-
-
+    # 後始末
     del model

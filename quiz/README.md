@@ -27,6 +27,10 @@
 
 JSQuAD QA
 
+```
+'question: {question} context: {context}' -> '{answer}'
+```
+
 ```bash
 download.sh
 python prepare_data_jsquad_qa.py
@@ -35,6 +39,10 @@ python train.py
 
 JSQuAD AQG
 
+```
+'answer: {answer} context: {context}' -> '{question}'
+```
+
 ```bash
 download.sh
 python prepare_data_jsquad_aqg.py
@@ -42,6 +50,10 @@ python train.py max_target_length=128
 ```
 
 quiz  AQG
+
+```
+'answer: {answer} context: {context}' -> '{question}'
+```
 
 ```bashd
 python prepare_quiz_aqg.py
@@ -53,7 +65,15 @@ quiz  AQG-HL
     - https://github.com/patil-suraj/question_generation#answer-aware-question-generation
 
     ハイライト形式。区切れる？
+    文を<SEP>で区切る?
     <hl> 42 <hl> is the answer to life, the universe and everything.
+
+
+```
+'c1 c2 ... <hl> a1 ... a|A| <hl> ... c|C|' -> '{question}'
+```
+
+解答語句部分をハイライトする。ハイライトされた周辺文脈に基づいて生成するよう誘導する?
 
 ```bash
 python prepare_quiz_aqg_hl.py
@@ -73,10 +93,6 @@ https://github.com/patil-suraj/exploring-T5/blob/master/t5_fine_tuning.ipynb
 
 そのあと、損失に手を入れられるよう、pytorch lightning依存をなくす。
 
---
-
-https://github.com/huggingface/transformers/issues/17504
-bad_word_idsをつけるか
 
 ## 推論
 
@@ -84,4 +100,35 @@ bad_word_idsをつけるか
 python predict.py
 ```
 
+```bash
+python predict.py --help
+```
 
+```bash
+# python-3.10.8
+pip install -qU pip wheel
+pip install -qU neologdn pandas numpy scikit-learn tqdm classopt
+pip install -qU torch torchtext torchvision torchaudio
+pip install -qU transformers pytorch-lightning sentencepiece protobuf==3.20.0
+```
+
+```
+Package                  Version
+------------------------ ----------
+classopt                 0.2.1
+neologdn                 0.5.1
+numpy                    1.24.2
+pandas                   1.5.3
+pip                      23.0.1
+protobuf                 3.20.0
+pytorch-lightning        2.0.0
+scikit-learn             1.2.2
+sentencepiece            0.1.97
+torch                    2.0.0
+torchaudio               2.0.1
+torchtext                0.15.1
+torchvision              0.15.1
+tqdm                     4.65.0
+transformers             4.27.1
+wheel                    0.40.0
+```
