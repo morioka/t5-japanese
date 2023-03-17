@@ -127,3 +127,10 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+quiz/convert_aio3_jsonl_to_quiz_tsv.py
+quiz/v1.1.0.zip
+quiz/data/
+quiz/JGLUE-1.1.0/
+quiz/model/
+quiz/lightning_logs/
+requirements.txt.old
