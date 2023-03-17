@@ -105,6 +105,10 @@ python train.py --no_train --model_dir model
 
 ※ AQG専用
 
+```
+'answer: {answer} context: {context}' -> '{question}'
+```
+
 ```bash
 python infer.py
 
@@ -164,4 +168,41 @@ wheel                    0.40.0
 - best (== val_loss最小)のモデルを保存するよう。評価でもそれを用いるよう
   - https://github.com/hppRC/bert-classification-tutorial/blob/main/src/train.py
 
+## ハルシーネーション
 
+- 簡単化のため、ハルシネーションとは生成文に出現する語句のうちで原文または原文章には出現しない語句と定義する。
+- 言い換えや表記ゆれの場合、ハルシーネーションとみなす。さもなくば事前修正すべき。
+- 背景知識があれば問題ないと判断できる場合でも、ハルシーネーションとみなす。さもなくば事前修正すべき。
+- 内容語に限定するのが望ましい。機能語は対象とすべきでなく、対象としても仕方ないだろう。
+  - 機能語によって文意が反転することがあるだろうが、ここでは気にしない。
+- トークン単位でみる。トーカナイザは mecab か sudachiか。
+
+```python
+import spacy
+
+nlp = spacy.load('ja_ginza')
+
+def check_hallucination(candidate, reference):
+  doc_c = nlp(candidate)
+  doc_r = nlp(reference)
+
+  tok_c = [i.text for i def checkdedefdin doc_c]
+  tok_r = [i.text for i in doc_r]
+
+  hallucination = set(tok_c) - set(tok_r)
+
+  # TODO: 内容語のみに限定するか、機能語を除くか、記号を除くか
+  return hallucination  
+
+candidate = "今日はわるい天気だ"  # 「わるい」が hallucination
+reference = "今日は天気だ"
+
+check_hallucination(candidate="今日はわるい天気だ", reference="今日はわるい天気だ")
+# > set()
+check_hallucination(candidate="今日は天気だ", reference="今日はわるい天気だ")
+# > set()
+check_hallucination(candidate="今日はわるい天気だ", reference="今日は天気だ")
+# >{'わるい'}
+check_hallucination(candidate="今日はわるい天気だ", reference="今日はよい天気だ")
+# >{'わるい'}
+```
