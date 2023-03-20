@@ -32,11 +32,11 @@ def normalize_text(text):
 
 def make_squad_data(json_data):
     data = []
-    for datum in json_data["data"]:
-        for paragraph in datum["paragraphs"]:
+    for datum in tqdm(json_data["data"]):
+        for paragraph in tqdm(datum["paragraphs"], leave=False):
             context = paragraph["context"]
-            context = normalize_text(context).replace("[sep]", "<|n|>")
-            for qa in paragraph["qas"]:
+            context = normalize_text(context).replace("[sep]", "<|n|>").replace("[SEP]", "<|n|>")
+            for qa in tqdm(paragraph["qas"], leave=False):
                 qa_id = qa["id"]
 
                 question = qa["question"]
@@ -70,7 +70,7 @@ def normalize_squad_test_data(json_data, model="sonoisa/t5-base-japanese"):
     for datum in tqdm(json_data["data"]):
         for paragraph in datum["paragraphs"]:
             context = paragraph["context"]
-            context = normalize_text(context).replace("[sep]", "<|n|>")
+            context = normalize_text(context).replace("[sep]", "<|n|>").replace("[SEP]", "<|n|>")
             paragraph["context"] = context
 
             for qa in paragraph["qas"]:

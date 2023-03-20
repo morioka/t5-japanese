@@ -38,11 +38,11 @@ def normalize_text(text):
 
 def make_squad_data(json_data):
     data = []
-    for datum in json_data["data"]:
-        for paragraph in datum["paragraphs"]:
+    for datum in tqdm(json_data["data"]):
+        for paragraph in tqdm(datum["paragraphs"], leave=False):
             context = paragraph["context"]
-            context = normalize_text(context).replace("[sep]", "<|n|>")
-            for qa in paragraph["qas"]:
+            context = normalize_text(context).replace("[sep]", "<|n|>").replace("[SEP]", "<|n|>")
+            for qa in tqdm(paragraph["qas"], leave=False):
                 qa_id = qa["id"]
 
                 question = qa["question"]
@@ -64,7 +64,8 @@ def make_squad_data(json_data):
                         continue
 
                     #  簡単のために、context中の複数の文を結合・合成してquestionが生成されることを仮定しない。
-                    input = f"context: {context.replace(answer_text, f'<hl>answer_text<hl>')}"
+#                    input = f"context: {context.replace(answer_text, f'<hl>answer_text<hl>')}"
+                    input = f"{context.replace(answer_text, f'<hl>answer_text<hl>')}"
                     target = f"{question}"
 
                     if True:  # answer_textが出現するcontextの文の中でquestionに最も近いものを選ぶ。
@@ -77,7 +78,8 @@ def make_squad_data(json_data):
                         sents[sent_idx] = sents[sent_idx].replace(answer_text, f'<hl>{answer_text}<hl>')
                         context = "".join(sents)
 
-                        input = f"context: {context}"
+#                        input = f"answer_context: {context}"
+                        input = f"{context}"
                         target = f"{question}"
 
                 # ?? 文を区切るようattention maskを設定してやるべきだろうか。
@@ -103,7 +105,7 @@ def normalize_squad_test_data(json_data, model="sonoisa/t5-base-japanese"):
     for datum in tqdm(json_data["data"]):
         for paragraph in datum["paragraphs"]:
             context = paragraph["context"]
-            context = normalize_text(context).replace("[sep]", "<|n|>")
+            context = normalize_text(context).replace("[sep]", "<|n|>").replace("[SEP]", "<|n|>")
             paragraph["context"] = context
 
             for qa in paragraph["qas"]:
