@@ -290,11 +290,12 @@ if not conf.no_train:
                                input_max_len=512, target_max_len=64)
 
     # チェックポイントほか
-    checkpoint_dir = "model/checkpoints"
+    checkpoint_dir = f"{conf.model_dir}/checkpoints"
     checkpoint_callback = pl.callbacks.ModelCheckpoint(
         checkpoint_dir, 
         monitor="val_loss", mode="min", save_top_k=1
     )
+    os.makedirs(checkpoint_dir, exist_ok=True)
 
     # 学習用ハイパーパラメータを設定
     train_params = dict(
