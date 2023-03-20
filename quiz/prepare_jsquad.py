@@ -126,18 +126,18 @@ def main():
     os.makedirs(DATA_DIR, exist_ok=True)
 
     # squad json to tsv 
-    with open("JGLUE/datasets/jsquad-v1.1/train-v1.1.json", "r", encoding="utf-8") as f_in:
+    with open("JGLUE-1.1.0/datasets/jsquad-v1.1/train-v1.1.json", "r", encoding="utf-8") as f_in:
         json_data = json.load(f_in)
         train_data = make_squad_data(json_data)
 
-    with open("JGLUE/datasets/jsquad-v1.1/valid-v1.1.json", "r", encoding="utf-8") as f_in:
+    with open("JGLUE-1.1.0/datasets/jsquad-v1.1/valid-v1.1.json", "r", encoding="utf-8") as f_in:
         json_data = json.load(f_in)
         test_data = make_squad_data(json_data)
 
     # 注意: JSQuADのF1値計算の都合で、トークンの間に半角空白を入れた文字列に変換する。
     PRETRAINED_MODEL_NAME="sonoisa/t5-base-japanese"
     
-    with open("JGLUE/datasets/jsquad-v1.1/valid-v1.1.json", "r", encoding="utf-8") as f_in, \
+    with open("JGLUE-1.1.0/datasets/jsquad-v1.1/valid-v1.1.json", "r", encoding="utf-8") as f_in, \
         open(f"{DATA_DIR}/normalized-valid-v1.1.json", "w", encoding="utf-8") as f_test:
 
         json_data = json.load(f_in)

@@ -338,6 +338,8 @@ if not conf.no_train:
 
 
 if not conf.no_eval:
+    from util import bleu, rouge
+
     tokenizer = T5Tokenizer.from_pretrained(conf.model_dir, is_fast=True)
     trained_model = T5ForConditionalGeneration.from_pretrained(conf.model_dir)
 
@@ -424,24 +426,13 @@ if not conf.no_eval:
         "exact": np.array([ o == t for (o, t) in zip(outputs, targets)]).sum() / len(outputs)
     }
 
-    # https://www.ogis-ri.co.jp/otc/hiroba/technical/similar-document-search/part14.html
-    from sacrebleu import corpus_bleu
-
-    def bleu(predictions, references):
-        references = [references]
-        bleu_score = corpus_bleu(predictions, references,      
-                                     smooth_method="exp",
-                                     smooth_value=0.0,
-                                     force=False,
-                                     lowercase=False,
-                                     tokenize="ja-mecab",
-                                     use_effective_order=False)
-        return bleu_score.score
-
     # BLEU: n-gram 一致数を基にした機械翻訳の自動評価指標の一つ
     results['bleu'] = bleu(outputs, targets)
 
-    print(f"EM: {results['exact']}\nBLEU: {results['bleu']}")
+    # ROUGE: n-gram 一致数を基にした機械翻訳の自動評価指標の一つ
+    results['rouge'] = rouge(outputs, targets)['rougeAve']
+
+    print(f"EM: {results['exact']}\nBLEU: {results['bleu']}\nROGUE: {results['rouge']}")
 
     if False:
         from transformers.data.metrics.squad_metrics import squad_evaluate

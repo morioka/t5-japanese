@@ -99,6 +99,11 @@ TODO:
 python train.py --no_train --model_dir model
 ```
 
+### 評価指標
+
+- EM (ExactMatch):  exact match + spacy/GiNZA(sudachi)
+- BLUE:   mjpost/sacrebleu + mecab-ipadic
+- ROUGE:  neulab/compare-mt + mecab-ipadic 
 
 ## 推論
 
@@ -126,12 +131,21 @@ pip install -qU neologdn pandas numpy scikit-learn tqdm classopt
 pip install -qU torch torchtext torchvision torchaudio
 pip install -qU transformers pytorch-lightning sentencepiece protobuf==3.20.0
 pip install -qU sacrebleu[ja]
+pip install -qU compare_mt
+pip install -qU mecab-python3 fugashi ipadic
+pip install -qU spacy ja_ginza
 ```
 
 ```
 Package                  Version
 ------------------------ ----------
 classopt                 0.2.1
+compare-mt               0.2.10
+fugashi                  1.2.1
+ginza                    5.1.2
+ipadic                   1.0.0
+ja-ginza                 5.1.2
+mecab-python3            1.0.5
 neologdn                 0.5.1
 numpy                    1.24.2
 pandas                   1.5.3
@@ -140,6 +154,7 @@ protobuf                 3.20.0
 pytorch-lightning        2.0.0
 scikit-learn             1.2.2
 sentencepiece            0.1.97
+spacy                    3.4.4
 torch                    2.0.0
 torchaudio               2.0.1
 torchtext                0.15.1
@@ -149,11 +164,13 @@ transformers             4.27.1
 wheel                    0.40.0
 ```
 
+
 ## 履歴
 
 - 3/16  全面的に書き直し
 - 3/17  omegaconfとargparse併用から omegaconf単体へ。さらにclassopt
   - classoptの場合、notebookなどからの利用が不可?
+- 3/20  bleu, rogue 書き直し
 
 ## TODO
 
@@ -168,7 +185,7 @@ wheel                    0.40.0
   - https://github.com/hppRC/bert-classification-tutorial/blob/main/src/train.py
 
 
-- ROUGEの実装と
+- 済)ROUGEの実装と
 - 普通のループで損失を生に出すところだな。
 
 ## ハルシーネーション
@@ -185,7 +202,7 @@ import spacy
 
 nlp = spacy.load('ja_ginza')
 
-def check_hallucination(candidate, reference):
+def check_hallucination(candidate, reference, stop_words=[]):
   doc_c = nlp(candidate)
   doc_r = nlp(reference)
 
@@ -195,6 +212,9 @@ def check_hallucination(candidate, reference):
   hallucination = set(tok_c) - set(tok_r)
 
   # TODO: 内容語のみに限定するか、機能語を除くか、記号を除くか
+  stop_words = set(stop_words)
+  hallucination = [i - stop_words for i in hallucination]
+
   return hallucination  
 
 candidate = "今日はわるい天気だ"  # 「わるい」が hallucination
