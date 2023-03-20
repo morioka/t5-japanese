@@ -5,8 +5,6 @@
 # 修正点:
 #   - 前処理を NKFC正規化+neologdnに。小文字化しない。
 
-#!git clone https://github.com/yahoojapan/JGLUE
-#または
 #!wget https://github.com/yahoojapan/JGLUE/archive/refs/tags/v1.1.0.zip
 #!unzip v1.1.0.zip
 #!rm v1.1.0.zip
@@ -19,6 +17,14 @@ import neologdn
 
 import json
 
+import spacy
+import numpy as np
+
+with_hl = True
+
+#
+nlp = spacy.load('ja_ginza')
+                        
 def normalize_text(text):
     text = text.strip()
     assert "\t" not in text
@@ -45,11 +51,36 @@ def make_squad_data(json_data):
                 answer_text = qa["answers"][0]["text"]
                 answer_text = normalize_text(answer_text)
                 
+                # question-answering または machine-reading-comprehension
 #                input = f"question: {question} context: {context}"
 #                target = f"{answer_text}"
+
+                # answer-aware question-generation
                 input = f"answer: {answer_text} context: {context}"
                 target = f"{question}"
 
+                if with_hl:    # answer-aware question-generation with highlight
+                    if answer_text not in context:
+                        continue
+
+                    #  簡単のために、context中の複数の文を結合・合成してquestionが生成されることを仮定しない。
+                    input = f"context: {context.replace(answer_text, f'<hl>answer_text<hl>')}"
+                    target = f"{question}"
+
+                    if True:  # answer_textが出現するcontextの文の中でquestionに最も近いものを選ぶ。
+                        # spacyの場合はword_embeddingの平均なので、いちいち文ごとのembeddingを取らなくてもよいか。しかしSentはembeddingを持たない
+                        question_doc = nlp(question)
+                        sents = [str(sent) for sent in nlp(context.strip()).sents]
+                        sents_simil = [question_doc.similarity(nlp(sent)) for sent in sents]
+                        sents_simil = np.array([simil if answer_text in sent else 0.0  for (sent, simil) in zip(sents, sents_simil)])
+                        sent_idx = np.argmax(sents_simil)
+                        sents[sent_idx] = sents[sent_idx].replace(answer_text, f'<hl>{answer_text}<hl>')
+                        context = "".join(sents)
+
+                        input = f"context: {context}"
+                        target = f"{question}"
+
+                # ?? 文を区切るようattention maskを設定してやるべきだろうか。
                 data.append((qa_id, input, target))
     return data
 
@@ -128,22 +159,25 @@ def to_line(data):
 def main():
     
     DATA_DIR="data"
+    DATA_DIR="data_jsquad_aqg"
+    if with_hl:
+        DATA_DIR="data_jsquad_aqg_hl"
 
     os.makedirs(DATA_DIR, exist_ok=True)
 
     # squad json to tsv 
-    with open("JGLUE/datasets/jsquad-v1.1/train-v1.1.json", "r", encoding="utf-8") as f_in:
+    with open("JGLUE-1.1.0/datasets/jsquad-v1.1/train-v1.1.json", "r", encoding="utf-8") as f_in:
         json_data = json.load(f_in)
         train_data = make_squad_data(json_data)
 
-    with open("JGLUE/datasets/jsquad-v1.1/valid-v1.1.json", "r", encoding="utf-8") as f_in:
+    with open("JGLUE-1.1.0/datasets/jsquad-v1.1/valid-v1.1.json", "r", encoding="utf-8") as f_in:
         json_data = json.load(f_in)
         test_data = make_squad_data(json_data)
 
     # 注意: JSQuADのF1値計算の都合で、トークンの間に半角空白を入れた文字列に変換する。
     PRETRAINED_MODEL_NAME="sonoisa/t5-base-japanese"
     
-    with open("JGLUE/datasets/jsquad-v1.1/valid-v1.1.json", "r", encoding="utf-8") as f_in, \
+    with open("JGLUE-1.1.0/datasets/jsquad-v1.1/valid-v1.1.json", "r", encoding="utf-8") as f_in, \
         open(f"{DATA_DIR}/normalized-valid-v1.1.json", "w", encoding="utf-8") as f_test:
 
         json_data = json.load(f_in)
