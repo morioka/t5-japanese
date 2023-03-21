@@ -300,3 +300,26 @@ python run_clm.py \
 訓練サイズ=70040, バッチサイズ=1 で 12h以上 /epochと言ってくる。
 動かすのが精いっぱい。いけそうと判断したら、もっと大きな環境で動かさないと、まともに学習できない。
 
+- https://twitter.com/morioka/status/1637951549015232512
+  - <blockquote class="twitter-tweet"><p lang="en" dir="ltr">I&#39;ve gotten some requests about the &quot;building language models&quot; project from last year&#39;s Stanford Large Language Models class, so we&#39;re releasing it: <a href="https://t.co/UVT0Hdm0mr">https://t.co/UVT0Hdm0mr</a><br><br>The task is to finetune LMs to give them new capabilities/properties, similarly to Toolformer and Alpaca. <a href="https://t.co/RJhuKZLayI">pic.twitter.com/RJhuKZLayI</a></p>&mdash; Sang Michael Xie (@sangmichaelxie) <a href="https://twitter.com/sangmichaelxie/status/1637834223699783680?ref_src=twsrc%5Etfw">March 20, 2023</a></blockquote> <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
+- [sangmichaelxie/cs324_p2: Project 2 (Building Large Language Models) for Stanford CS324: Understanding and Developing Large Language Models (Winter 2022](https://github.com/sangmichaelxie/cs324_p2)
+
+---
+
+大きめのモデルで見たほうがよいのかな。
+Alpaca-LoRA (6B)で日本語でファインチューニングする記事が出始めた。
+
+"""
+筆者の使用GPUはRTX3080一台です。バッチサイズを調整すればGPUメモリが12GB以上であれば単一のGPUでFineTuningが可能だと思います。
+""" という記述もある。
+
+- https://twitter.com/morioka/status/1637933189028261890
+  - <blockquote class="twitter-tweet"><p lang="ja" dir="ltr">記事を投稿しました！ Alpaca-loraを日本語タスクでファインチューニングする [Python] on <a href="https://twitter.com/hashtag/Qiita?src=hash&amp;ref_src=twsrc%5Etfw">#Qiita</a> <a href="https://t.co/aQS68kt1kQ">https://t.co/aQS68kt1kQ</a></p>&mdash; toshi_456 (@tech_nichijo) <a href="https://twitter.com/tech_nichijo/status/1637420497561583616?ref_src=twsrc%5Etfw">March 19, 2023</a></blockquote> <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
+  - [Alpaca-loraを日本語タスクでファインチューニングする - Qiita](https://qiita.com/toshi_456/items/280efc31950ddb083286)
+- https://twitter.com/morioka/status/1637831647700848641
+  - <blockquote class="twitter-tweet"><p lang="ja" dir="ltr">「手元で動く軽量の大規模言語モデルを日本語でファインチューニングしてみました(Alpaca-LoRA)」という記事を書いてみました。手元で動かせるのはすごく今後の可能性を感じますね。<a href="https://t.co/wOpTX3kJHz">https://t.co/wOpTX3kJHz</a></p>&mdash; Masa Kazama (@masa_kazama) <a href="https://twitter.com/masa_kazama/status/1637703014793510913?ref_src=twsrc%5Etfw">March 20, 2023</a></blockquote> <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
+  - [手元で動く軽量の大規模言語モデルを日本語でファインチューニングしてみました(Alpaca-LoRA)｜masa_kazama｜note(https://note.com/masa_kazama/n/nabaa6dfec741)
+- https://twitter.com/kun1em0n/status/1637973352777404417
+  - <blockquote class="twitter-tweet"><p lang="ja" dir="ltr">日本語で学習させたJapanese-Alpaca-LoRAの13B学習途中(128トークンで学習)。同じ回答を繰り返すので命令で工夫(1、2枚目)。512トークンで学習させた7Bは流暢だけど回答の中身は適当なものもあり(3枚目は適当、4枚目はぼちぼち)。やはり学習時間かかるけど13Bを512トークンで学習させるのが一番か🤔 <a href="https://t.co/RrGnv2CLPB">https://t.co/RrGnv2CLPB</a> <a href="https://t.co/mDl2iU3GZP">pic.twitter.com/mDl2iU3GZP</a></p>&mdash; クニえもん.inc🤗 (@kun1em0n) <a href="https://twitter.com/kun1em0n/status/1637973352777404417?ref_src=twsrc%5Etfw">March 21, 2023</a></blockquote> <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
+
+
