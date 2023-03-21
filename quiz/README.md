@@ -37,7 +37,8 @@ JSQuAD QA
 ```bash
 download.sh
 python prepare_jsquad.py
-python train.py --do_train --do_eval --model_name_or_path sonoisa/t5-base-japanese 
+python train.py --do_train --do_eval \
+  --model_name_or_path sonoisa/t5-base-japanese 
 ```
 
 JSQuAD AQG
@@ -49,7 +50,11 @@ JSQuAD AQG
 ```bash
 download.sh
 python prepare_jsquad_aqg.py
-python train.py --do_train --do_eval --model_name_or_path sonoisa/t5-base-japanese --output_dir model_jsquad_aqg --data_dir data_jsquad_aqg --max_target_length 128
+python train.py --do_train --do_eval \
+  --model_name_or_path sonoisa/t5-base-japanese \
+  --output_dir model_jsquad_aqg \
+  --data_dir data_jsquad_aqg \
+  --max_target_length 128
 ```
 
 
@@ -62,7 +67,11 @@ JSQuAD AQG-HL
 ```bash
 download.sh
 python prepare_jsquad_aqg.py  # 中の with_highlight=True
-python train.py --do_train --do_eval --model_name_or_path sonoisa/t5-base-japanese --output_dir model_jsquad_aqg_hl --data_dir data_jsquad_aqg_hl --max_target_length 128
+python train.py --do_train --do_eval \
+  --model_name_or_path sonoisa/t5-base-japanese \
+  --output_dir model_jsquad_aqg_hl \
+  --data_dir data_jsquad_aqg_hl \
+  --max_target_length 128
 ```
 
 
@@ -258,3 +267,33 @@ check_hallucination(candidate="今日はわるい天気だ", reference="今日�
   - GPT-2モデルせめて1Bできれば6B。そこにLoRAとRF
     - t5-baseよりは大きなパラメタで何とかしたい。mt5でもよいが。
   - [GPT-2をファインチューニングしてニュース記事のタイトルを条件付きで生成してみた。 - Qiita](https://qiita.com/m__k/items/36875fedf8ad1842b729)
+
+
+## gpt
+
+2023-03-21
+
+
+- [GPT-2をファインチューニングしてニュース記事のタイトルを条件付きで生成してみた。 - Qiita](https://qiita.com/m__k/items/36875fedf8ad1842b729)
+
+transformersをソースからインストールしなくとも、run_clm.pyだけ持ってきても動いた。
+
+python prepare_data_jsquad_aqg_hl.py      # t5向けhl形式
+python prepare_data_jsquad_aqg_hl_gpt.py  # t5向けからgpt向けに変換
+python run_clm.py \
+    --model_name_or_path=rinna/japanese-gpt2-medium \
+    --train_file=data_jsquad_aqg_hl_gpt/train.txt \
+    --validation_file=data_jsquad_aqg_hl_gpt/dev.txt  \
+    --do_train \
+    --do_eval \
+    --num_train_epochs=10 \
+    --save_steps=10000 \ # driveの容量が足りなくなるかもなので、保存するstepの間隔は要注意！
+    --save_total_limit=3 \
+    --per_device_train_batch_size=1 \ # バッチサイズ1でだいたい14,5GBほどGPUメモリ使います。
+    --per_device_eval_batch_size=1 \
+    --output_dir=output_gpt/ \
+    --use_fast_tokenizer=False
+
+訓練サイズ=70040, バッチサイズ=1 で 12h以上 /epochと言ってくる。
+動かすのが精いっぱい。いけそうと判断したら、もっと大きな環境で動かさないと、まともに学習できない。
+
