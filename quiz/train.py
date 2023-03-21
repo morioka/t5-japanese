@@ -32,19 +32,16 @@ USE_GPU = torch.cuda.is_available()
 
 @classopt(default_long=True, default_short=False)
 class Args:
-#    pretrained_model_name: str = 'sonoisa/t5-base-japanese'
     model_name_or_path: str = 'sonoisa/t5-base-japanese'
     tokenizer_name_or_path: str = None
 
-    model_dir: str = 'model'
+    output_dir: str = 'model'
     data_dir: str = 'data'
 
     seed: int = 42
 
-#    train: bool # = True
-#    eval: bool  # = True
-    no_train: bool # = True
-    no_eval: bool  # = True
+    do_train: bool = False
+    do_eval: bool = False
     
     max_input_length: int = 512
     max_target_length: int = 64
@@ -60,9 +57,9 @@ class Args:
     gradient_accumulation_steps: int = 1
 
     n_gpu: int = 1 if USE_GPU else 0
-    early_stop_callback: bool   # =False
-    fp_16: bool # =False
-    opt_level: str = 'O1'
+    early_stop_callback: bool = False
+    fp16: bool = False
+    fp16_opt_level: str = 'O1'
     max_grad_norm: float =1.0
 
     # 推論時
@@ -282,7 +279,7 @@ class T5FineTuner(pl.LightningModule):
                           batch_size=self.hparams.eval_batch_size, 
                           num_workers=4)
 
-if not conf.no_train:
+if conf.do_train:
     tokenizer = T5Tokenizer.from_pretrained(conf.tokenizer_name_or_path if conf.tokenizer_name_or_path is not None else conf.model_name_or_path, is_fast=True)
 
     # 訓練データセットの読み込み(トークン化を済ませておく)
@@ -290,7 +287,7 @@ if not conf.no_train:
                                input_max_len=512, target_max_len=64)
 
     # チェックポイントほか
-    checkpoint_dir = f"{conf.model_dir}/checkpoints"
+    checkpoint_dir = f"{conf.output_dir}/checkpoints"
     checkpoint_callback = pl.callbacks.ModelCheckpoint(
         checkpoint_dir, 
         monitor="val_loss", mode="min", save_top_k=1
@@ -302,8 +299,8 @@ if not conf.no_train:
         accumulate_grad_batches=conf.gradient_accumulation_steps,
         devices=conf.n_gpu,
         max_epochs=conf.num_train_epochs,
-        precision=16 if conf.fp_16 else 32,
-        #amp_level=conf.opt_level,
+        precision=16 if conf.fp16 else 32,
+        #amp_level=conf.fp16_opt_level,
         #amp_backend='apex',
         gradient_clip_val=conf.max_grad_norm,
         callbacks=[checkpoint_callback],    
@@ -331,18 +328,18 @@ if not conf.no_train:
     trainer.fit(model, ckpt_path=resume_ckpt)
 
     # 最終エポックのモデルを保存
-    model.tokenizer.save_pretrained(conf.model_dir)
-    model.model.save_pretrained(conf.model_dir)
+    model.tokenizer.save_pretrained(conf.output_dir)
+    model.model.save_pretrained(conf.output_dir)
 
     # 後始末
     del model
 
 
-if not conf.no_eval:
+if conf.do_eval:
     from util import bleu, rouge
 
-    tokenizer = T5Tokenizer.from_pretrained(conf.model_dir, is_fast=True)
-    trained_model = T5ForConditionalGeneration.from_pretrained(conf.model_dir)
+    tokenizer = T5Tokenizer.from_pretrained(conf.output_dir, is_fast=True)
+    trained_model = T5ForConditionalGeneration.from_pretrained(conf.output_dir)
 
     USE_GPU = torch.cuda.is_available()
     if USE_GPU:
@@ -417,7 +414,7 @@ if not conf.no_eval:
         #   predictions[qa_id] = output
 
     # 一覧出力
-    with open('output.tsv', 'w') as f:
+    with open(f'{conf.output_dir}/test_output.tsv', 'w') as f:
         f.write('qa_id\tinput\ttarget\toutput\n')
         for output, target, input, qa_id in zip(outputs, targets, inputs, qaids):
             f.write(f'{qa_id}\t{input}\t{target}\t{output}\n')
@@ -434,6 +431,8 @@ if not conf.no_eval:
     results['rouge'] = rouge(outputs, targets)['rougeAve']
 
     print(f"EM: {results['exact']}\nBLEU: {results['bleu']}\nROGUE: {results['rouge']}")
+    with open(f'{conf.output_dir}/test_summary.txt', 'w') as f:
+        f.write(f"EM: {results['exact']}\nBLEU: {results['bleu']}\nROGUE: {results['rouge']}\n")
 
     if False:
         from transformers.data.metrics.squad_metrics import squad_evaluate

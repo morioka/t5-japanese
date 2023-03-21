@@ -37,7 +37,7 @@ JSQuAD QA
 ```bash
 download.sh
 python prepare_jsquad.py
-python train.py
+python train.py --do_train --do_eval --model_name_or_path sonoisa/t5-base-japanese 
 ```
 
 JSQuAD AQG
@@ -49,8 +49,23 @@ JSQuAD AQG
 ```bash
 download.sh
 python prepare_jsquad_aqg.py
-python train.py --max_target_length 128
+python train.py --do_train --do_eval --model_name_or_path sonoisa/t5-base-japanese --output_dir model_jsquad_aqg --data_dir data_jsquad_aqg --max_target_length 128
 ```
+
+
+JSQuAD AQG-HL
+
+```
+'c1 c2 ... <hl> a1 ... a|A| <hl> ... c|C|' -> '{question}'
+```
+
+```bash
+download.sh
+python prepare_jsquad_aqg.py  # 中の with_highlight=True
+python train.py --do_train --do_eval --model_name_or_path sonoisa/t5-base-japanese --output_dir model_jsquad_aqg_hl --data_dir data_jsquad_aqg_hl --max_target_length 128
+```
+
+
 
 quiz  AQG
 
@@ -68,7 +83,7 @@ quiz  AQG-HL
     - https://github.com/patil-suraj/question_generation#answer-aware-question-generation
 
     ハイライト形式。区切れる？
-    文を<SEP>で区切る?
+    文を<SEP>で区切る? 文ごとにattention_maskを変える?
     <hl> 42 <hl> is the answer to life, the universe and everything.
 
 
@@ -83,7 +98,7 @@ python prepare_quiz_aqg_hl.py
 python train.py --max_target_length 128
 ```
 
-3/17 現状。fp_16=Trueだとnan。fp_16=Falseだとよい。
+3/17 現状。fp16=Trueだとnan。fp16=Falseだとよい。
 
 
 ## 評価
@@ -92,16 +107,16 @@ TODO:
 - sumevalを使っていたが、huggingface datasets metrics か huggingface evaluateを使うように。
 - トークンまたは単語単位での比較が必要で、T5tokenizer、mecab, sudachi(A? B? C?)のそれぞれで区切って比較する。
 
-- `model_name_or_path` でなく `model_dir` を読む
+- `model_name_or_path` でなく `output_dir` を読む
 - ExactMatch と sacrebleu[ja]による BLEU
 
 ```bash
-python train.py --no_train --model_dir model
+python train.py --do_eval --output_dir model
 ```
 
 ### 評価指標
 
-- EM (ExactMatch):  exact match + spacy/GiNZA(sudachi)
+- EM (ExactMatch):  文字列ベース
 - BLUE:   mjpost/sacrebleu + mecab-ipadic
 - ROUGE:  neulab/compare-mt + mecab-ipadic 
 
@@ -114,11 +129,11 @@ python train.py --no_train --model_dir model
 ```
 
 ```bash
-python infer.py
+python generate.py
 
-python infer.py --answer 甲府市 --context 山梨県の県庁所在地は甲府市です。
+python generate.py --answer 甲府市 --context 山梨県の県庁所在地は甲府市です。
 #山梨県の県庁所在地はどこですか?
-python infer.py --answer 甲府市 --context 山梨県の県庁所在地は甲府市です。 --bad_words 山梨 山梨県
+python generate.py --answer 甲府市 --context 山梨県の県庁所在地は甲府市です。 --bad_words 山梨 山梨県
 #中部地方の県庁所在地はどこですか?
 ```
 
@@ -134,6 +149,7 @@ pip install -qU sacrebleu[ja]
 pip install -qU compare_mt
 pip install -qU mecab-python3 fugashi ipadic
 pip install -qU spacy ja_ginza
+pip install -qU datasets evaluate
 ```
 
 ```
@@ -195,7 +211,7 @@ wheel                    0.40.0
 - 背景知識があれば問題ないと判断できる場合でも、ハルシーネーションとみなす。さもなくば事前修正すべき。
 - 内容語に限定するのが望ましい。機能語は対象とすべきでなく、対象としても仕方ないだろう。
   - 機能語によって文意が反転することがあるだろうが、ここでは気にしない。
-- トークン単位でみる。トーカナイザは mecab か sudachiか。
+- トークン単位でみる。トーカナイザは mecab または GiNZA(sudachi)。
 
 ```python
 import spacy
@@ -211,10 +227,13 @@ def check_hallucination(candidate, reference, stop_words=[]):
 
   hallucination = set(tok_c) - set(tok_r)
 
+  # stop_wordsに含まれる語はハルシネーションとみなさない
   # TODO: 内容語のみに限定するか、機能語を除くか、記号を除くか
-  stop_words = set(stop_words)
-  hallucination = [i - stop_words for i in hallucination]
-
+  if type(stop_words) is list:
+    stop_words = set(stop_words)
+  assert type(stop_words) is set
+  hallucination = hallucination - stop_words
+  
   return hallucination  
 
 candidate = "今日はわるい天気だ"  # 「わるい」が hallucination
@@ -229,3 +248,13 @@ check_hallucination(candidate="今日はわるい天気だ", reference="今日�
 check_hallucination(candidate="今日はわるい天気だ", reference="今日はよい天気だ")
 # >{'わるい'}
 ```
+
+# TODO 3/20
+
+- pytorch_lightningからの脱却。少なくとも損失を自由に定義。
+- 済：データセットの整備  '[SEP]' の扱いを '[sep]' と同様に。
+- GPT-2ファインチューニング。じつはrun_clm.py単独で動かせるのでは?
+  - GPT-2用のデータセット整備
+  - GPT-2モデルせめて1Bできれば6B。そこにLoRAとRF
+    - t5-baseよりは大きなパラメタで何とかしたい。mt5でもよいが。
+  - [GPT-2をファインチューニングしてニュース記事のタイトルを条件付きで生成してみた。 - Qiita](https://qiita.com/m__k/items/36875fedf8ad1842b729)
