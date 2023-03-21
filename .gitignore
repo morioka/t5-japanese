@@ -135,3 +135,5 @@ quiz/model/
 quiz/lightning_logs/
 requirements.txt.old
 quiz/output.tsv
+quiz/data_*/
+quiz/model_*/
