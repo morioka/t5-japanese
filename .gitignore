@@ -137,3 +137,5 @@ requirements.txt.old
 quiz/output.tsv
 quiz/data_*/
 quiz/model_*/
+quiz/run_clm.py
+quiz/output_*/
