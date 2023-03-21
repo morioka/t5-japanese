@@ -278,7 +278,9 @@ check_hallucination(candidate="今日はわるい天気だ", reference="今日�
 
 transformersをソースからインストールしなくとも、run_clm.pyだけ持ってきても動いた。
 
-python prepare_data_jsquad_aqg_hl.py      # t5向けhl形式
+```bash
+download.sh
+#python prepare_data_jsquad_aqg_hl.py      # t5向けhl形式
 python prepare_data_jsquad_aqg_hl_gpt.py  # t5向けからgpt向けに変換
 python run_clm.py \
     --model_name_or_path=rinna/japanese-gpt2-medium \
@@ -287,12 +289,13 @@ python run_clm.py \
     --do_train \
     --do_eval \
     --num_train_epochs=10 \
-    --save_steps=10000 \ # driveの容量が足りなくなるかもなので、保存するstepの間隔は要注意！
+    --save_steps=10000 \
     --save_total_limit=3 \
-    --per_device_train_batch_size=1 \ # バッチサイズ1でだいたい14,5GBほどGPUメモリ使います。
+    --per_device_train_batch_size=1 \
     --per_device_eval_batch_size=1 \
     --output_dir=output_gpt/ \
     --use_fast_tokenizer=False
+```
 
 訓練サイズ=70040, バッチサイズ=1 で 12h以上 /epochと言ってくる。
 動かすのが精いっぱい。いけそうと判断したら、もっと大きな環境で動かさないと、まともに学習できない。
