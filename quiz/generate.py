@@ -108,19 +108,19 @@ if __name__ == "__main__":
 
 
 """
-(t5-jp) morioka@legion:~/aio/morioka/t5-japanese/quiz$ python ./predict.py
+$ python predict.py --verbose
 Args(model_name_or_path='sonoisa/t5-base-japanese-question-generation', tokenizer_name_or_path=None, seed=42, max_input_length=512, max_target_length=64, temperature=1.0, repetition_penalty=1.5, num_beams=10, diversity_penalty=1.0, num_beam_groups=10, num_return_sequences=10, answer='富士山', context='富士山は静岡県と山梨県にまたがっている山です。', bad_words=None)
 静岡県と山梨県にはどんな山がありますか?
-(t5-jp) morioka@legion:~/aio/morioka/t5-japanese/quiz$ python ./predict.py --answer 山梨県
+$ python predict.py --verbose --answer 山梨県
 Args(model_name_or_path='sonoisa/t5-base-japanese-question-generation', tokenizer_name_or_path=None, seed=42, max_input_length=512, max_target_length=64, temperature=1.0, repetition_penalty=1.5, num_beams=10, diversity_penalty=1.0, num_beam_groups=10, num_return_sequences=10, answer='山梨県', context='富士山は静岡県と山梨県にまたがっている山です。', bad_words=None)
 静岡県と他のどの県にまたがっている富士山ですか?
-(t5-jp) morioka@legion:~/aio/morioka/t5-japanese/quiz$ python ./predict.py --answer 山梨県 --context 山梨県の県庁所在地は甲府市です。
+$ python predict.py --verbose --answer 山梨県 --context 山梨県の県庁所在地は甲府市です。
 Args(model_name_or_path='sonoisa/t5-base-japanese-question-generation', tokenizer_name_or_path=None, seed=42, max_input_length=512, max_target_length=64, temperature=1.0, repetition_penalty=1.5, num_beams=10, diversity_penalty=1.0, num_beam_groups=10, num_return_sequences=10, answer='山梨県', context='山梨県の県庁所在地は甲府市です。', bad_words=None)
 どの県が県庁所在地ですか
-(t5-jp) morioka@legion:~/aio/morioka/t5-japanese/quiz$ python ./predict.py --answer 甲府市 --context 山梨県の県庁所在地は甲府市です。
+$ python predict.py --verbose --answer 甲府市 --context 山梨県の県庁所在地は甲府市です。
 Args(model_name_or_path='sonoisa/t5-base-japanese-question-generation', tokenizer_name_or_path=None, seed=42, max_input_length=512, max_target_length=64, temperature=1.0, repetition_penalty=1.5, num_beams=10, diversity_penalty=1.0, num_beam_groups=10, num_return_sequences=10, answer='甲府市', context='山梨県の県庁所在地は甲府市です。', bad_words=None)
 山梨県の県庁所在地はどこですか?
-(t5-jp) morioka@legion:~/aio/morioka/t5-japanese/quiz$ python ./predict.py --answer 甲府市 --context 山梨県の県庁所在地は甲府市です。 --bad_words 山梨 山梨県
+$ python predict.py --verbose --answer 甲府市 --context 山梨県の県庁所在地は甲府市です。 --bad_words 山梨 山梨県
 Args(model_name_or_path='sonoisa/t5-base-japanese-question-generation', tokenizer_name_or_path=None, seed=42, max_input_length=512, max_target_length=64, temperature=1.0, repetition_penalty=1.5, num_beams=10, diversity_penalty=1.0, num_beam_groups=10, num_return_sequences=10, answer='甲府市', context='山梨県の県庁所在地は甲府市です。', bad_words=['山梨', '山梨県'])
 中部地方の県庁所在地はどこですか?
-(t5-jp) morioka@legion:~/aio/morioka/t5-japanese/quiz$ """
+"""
