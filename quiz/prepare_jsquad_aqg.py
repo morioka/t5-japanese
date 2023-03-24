@@ -20,7 +20,10 @@ import json
 import spacy
 import numpy as np
 
-with_hl = True
+
+with_hl = False
+if os.path.basename(__file__) == 'prepare_jsquad_aqg_hl.py':
+    with_hl = True
 
 #
 nlp = spacy.load('ja_ginza')
@@ -64,7 +67,6 @@ def make_squad_data(json_data):
                         continue
 
                     #  簡単のために、context中の複数の文を結合・合成してquestionが生成されることを仮定しない。
-#                    input = f"context: {context.replace(answer_text, f'<hl>answer_text<hl>')}"
                     input = f"{context.replace(answer_text, f'<hl>answer_text<hl>')}"
                     target = f"{question}"
 
@@ -78,7 +80,6 @@ def make_squad_data(json_data):
                         sents[sent_idx] = sents[sent_idx].replace(answer_text, f'<hl>{answer_text}<hl>')
                         context = "".join(sents)
 
-#                        input = f"answer_context: {context}"
                         input = f"{context}"
                         target = f"{question}"
 
@@ -160,10 +161,10 @@ def to_line(data):
 
 def main():
     
-    DATA_DIR="data"
+    #DATA_DIR="data"
     DATA_DIR="data_jsquad_aqg"
     if with_hl:
-        DATA_DIR="data_jsquad_aqg_hl"
+        DATA_DIR= DATA_DIR + "_hl"
 
     os.makedirs(DATA_DIR, exist_ok=True)
 

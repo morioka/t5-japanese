@@ -19,6 +19,9 @@ import neologdn
 
 import json
 
+import mojomoji
+
+
 def normalize_text(text):
     text = text.strip()
     assert "\t" not in text
@@ -26,6 +29,10 @@ def normalize_text(text):
     assert "\n" not in text
     assert len(text) > 0
 
+    text = text.replace("\u3000", " ").replace("\n", " ")
+    text = mojimoji.zen_to_han(text, kana=False)  # 英数字を半角に
+    text = mojimoji.han_to_zen(text, ascii=False, digit=False)  # かなを全角に
+    
     text = neologdn.normalize(unicodedata.normalize('NFKC', text))
     #text = text.lower()
     return text
