@@ -159,6 +159,7 @@ pip install -qU compare_mt
 pip install -qU mecab-python3 fugashi ipadic
 pip install -qU spacy ja_ginza
 pip install -qU datasets evaluate
+pip install -qU mojimoji
 ```
 
 ```
