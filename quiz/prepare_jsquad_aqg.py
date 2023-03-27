@@ -22,14 +22,20 @@ import numpy as np
 
 
 with_hl = False
+for_qa = False
 if os.path.basename(__file__) == 'prepare_jsquad_aqg_hl.py':
     with_hl = True
+
+if os.path.basename(__file__) == 'prepare_jsquad_qa.py':
+    for_qa = True
 
 #
 nlp = spacy.load('ja_ginza')
                         
 def normalize_text(text):
     text = text.strip()
+    text = text.replace('\t', '').replace('\r', '').replace('\n', '')
+
     assert "\t" not in text
     assert "\r" not in text
     assert "\n" not in text
@@ -53,7 +59,10 @@ def make_squad_data(json_data):
 
                 answer_text = qa["answers"][0]["text"]
                 answer_text = normalize_text(answer_text)
-                
+
+                if answer_text not in context:
+                    continue
+
                 # question-answering または machine-reading-comprehension
 #                input = f"question: {question} context: {context}"
 #                target = f"{answer_text}"
@@ -67,21 +76,27 @@ def make_squad_data(json_data):
                         continue
 
                     #  簡単のために、context中の複数の文を結合・合成してquestionが生成されることを仮定しない。
-                    input = f"{context.replace(answer_text, f'<hl>answer_text<hl>')}"
+                    input = f"{context.replace(answer_text, f'<hl>{answer_text}<hl>')}"
                     target = f"{question}"
 
                     if True:  # answer_textが出現するcontextの文の中でquestionに最も近いものを選ぶ。
                         # spacyの場合はword_embeddingの平均なので、いちいち文ごとのembeddingを取らなくてもよいか。しかしSentはembeddingを持たない
-                        question_doc = nlp(question)
+#                        question_doc = nlp(question)
+                        question_doc = nlp(f"{question}答えは{answer_text}")
                         sents = [str(sent) for sent in nlp(context.strip()).sents]
                         sents_simil = [question_doc.similarity(nlp(sent)) for sent in sents]
                         sents_simil = np.array([simil if answer_text in sent else 0.0  for (sent, simil) in zip(sents, sents_simil)])
                         sent_idx = np.argmax(sents_simil)
                         sents[sent_idx] = sents[sent_idx].replace(answer_text, f'<hl>{answer_text}<hl>')
-                        context = "".join(sents)
+                        context_annotated = "".join(sents)
 
-                        input = f"{context}"
+                        input = f"{context_annotated}"
                         target = f"{question}"
+
+                if for_qa:
+                    # question-answering または machine-reading-comprehension
+                    input = f"question: {question} context: {context}"
+                    target = f"{answer_text}"
 
                 # ?? 文を区切るようattention maskを設定してやるべきだろうか。
                 data.append((qa_id, input, target))
@@ -165,6 +180,8 @@ def main():
     DATA_DIR="data_jsquad_aqg"
     if with_hl:
         DATA_DIR= DATA_DIR + "_hl"
+    if for_qa:
+        DATA_DIR="data_jsquad_qa"
 
     os.makedirs(DATA_DIR, exist_ok=True)
 
