@@ -417,7 +417,10 @@ if conf.do_eval:
     with open(f'{conf.output_dir}/test_output.tsv', 'w') as f:
         f.write('qa_id\tinput\ttarget\toutput\n')
         for output, target, input, qa_id in zip(outputs, targets, inputs, qaids):
-            f.write(f'{qa_id}\t{input}\t{target}\t{output}\n')
+            try:
+                f.write(f'{qa_id}\t{input}\t{target}\t{output}\n')
+            except:
+                pass
 
     # ExactMatch: 文字列が完全一致した割合
     results = {
