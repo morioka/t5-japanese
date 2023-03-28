@@ -20,6 +20,7 @@ import json
 import spacy
 import numpy as np
 
+import mojomoji
 
 with_hl = False
 for_qa = False
@@ -34,12 +35,16 @@ nlp = spacy.load('ja_ginza')
                         
 def normalize_text(text):
     text = text.strip()
-    text = text.replace('\t', '').replace('\r', '').replace('\n', '')
+    text = text.replace('\t', ' ').replace('\r', '').replace('\n', ' ')
 
     assert "\t" not in text
     assert "\r" not in text
     assert "\n" not in text
     assert len(text) > 0
+
+    text = text.replace("\u3000", " ").replace("\n", " ")
+    text = mojimoji.zen_to_han(text, kana=False)  # 英数字を半角に
+    text = mojimoji.han_to_zen(text, ascii=False, digit=False)  # かなを全角に
 
     text = neologdn.normalize(unicodedata.normalize('NFKC', text))
     #text = text.lower()
@@ -76,18 +81,18 @@ def make_squad_data(json_data):
                         continue
 
                     #  簡単のために、context中の複数の文を結合・合成してquestionが生成されることを仮定しない。
-                    input = f"{context.replace(answer_text, f'<hl>{answer_text}<hl>')}"
+                    input = f"{context.replace(answer_text, f'<hl>{answer_text}<hl>', 1)}" # ハイライトは1箇所限定。複数候補に対しては初回決め打ち。
                     target = f"{question}"
 
                     if True:  # answer_textが出現するcontextの文の中でquestionに最も近いものを選ぶ。
-                        # spacyの場合はword_embeddingの平均なので、いちいち文ごとのembeddingを取らなくてもよいか。しかしSentはembeddingを持たない
+                        # spacyの場合はword_embeddingの平均なので、一つ一つの文毎のembeddingを取らずにSentで区切って計算すればよいか。ただしSentはembeddingを持たない
 #                        question_doc = nlp(question)
                         question_doc = nlp(f"{question}答えは{answer_text}")
                         sents = [str(sent) for sent in nlp(context.strip()).sents]
                         sents_simil = [question_doc.similarity(nlp(sent)) for sent in sents]
                         sents_simil = np.array([simil if answer_text in sent else 0.0  for (sent, simil) in zip(sents, sents_simil)])
                         sent_idx = np.argmax(sents_simil)
-                        sents[sent_idx] = sents[sent_idx].replace(answer_text, f'<hl>{answer_text}<hl>')
+                        sents[sent_idx] = sents[sent_idx].replace(answer_text, f'<hl>{answer_text}<hl>', 1) # ハイライトは1箇所限定。複数候補に対しては初回決め打ち。
                         context_annotated = "".join(sents)
 
                         input = f"{context_annotated}"
