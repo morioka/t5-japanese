@@ -38,6 +38,8 @@ class Args:
     output_dir: str = 'model'
     data_dir: str = 'data'
 
+    result_dir: str = '.'
+
     seed: int = 42
 
     do_train: bool = False
@@ -216,8 +218,8 @@ if conf.do_eval:
             max_length=conf.max_target_length,
             temperature=conf.temperature,
             repetition_penalty=conf.repetition_penalty,
-            return_dict_in_generate=True,  # t5_JSQuAD.ipynb にはある
-            output_scores=True             # t5_JSQuAD.ipynb にはある
+#            return_dict_in_generate=True,  # t5_JSQuAD.ipynb にはある
+#            output_scores=True             # t5_JSQuAD.ipynb にはある
         )
 
         output_text = [tokenizer.decode(ids, skip_special_tokens=True, 
@@ -237,8 +239,9 @@ if conf.do_eval:
 
 
         ##
-        dec = decode_to_whitespace_delimited_tokens(output.sequences)
+        dec = decode_to_whitespace_delimited_tokens(output)
         target = decode_to_whitespace_delimited_tokens(batch["target_ids"])
+
         #
         for qa_id, output in zip(qa_ids, dec):
             predictions[qa_id] = output
@@ -247,7 +250,8 @@ if conf.do_eval:
 
 
     # 一覧出力
-    with open(f'{conf.output_dir}/test_qa_output.tsv', 'w') as f:
+#    with open(f'{conf.output_dir}/test_qa_output.tsv', 'w') as f:
+    with open(f'{conf.result_dir}/test_qa_output.tsv', 'w') as f:
         f.write('qa_id\tinput\ttarget\toutput\n')
         for output, target, input, qa_id in zip(outputs, targets, inputs, qaids):
             try:
@@ -267,15 +271,28 @@ if conf.do_eval:
     results['rouge'] = rouge(outputs, targets)['rougeAve']
 
     print(f"EM: {results['exact']}\nBLEU: {results['bleu']}\nROGUE: {results['rouge']}")
-    with open(f'{conf.output_dir}/test_qa_summary.txt', 'w') as f:
+#    with open(f'{conf.output_dir}/test_qa_summary.txt', 'w') as f:
+    with open(f'{conf.result_dir}/test_qa_summary.txt', 'w') as f:
         f.write(f"EM: {results['exact']}\nBLEU: {results['bleu']}\nROGUE: {results['rouge']}\n")
 
     if True:
         from transformers.data.metrics.squad_metrics import squad_evaluate
-        from transformers.data.processors.squad import SquadV2Processor
+        from transformers.data.processors.squad import SquadV2Processor, SquadExample
 
 #        processor = SquadV2Processor()
 #        examples = processor.get_dev_examples("data", filename="normalized-valid-v1.1.json")
+        examples = [
+            SquadExample(
+                qas_id=k,
+                question_text="dummy_question",
+                context_text="dummy_context",
+                answer_text=v,
+                start_position_character=0,
+                title="dummy_title",
+                is_impossible=False,
+                answers=[{"text": v}],
+            )        
+        for k, v in zip(examples.keys(), examples.values())]
 
         # ## 精度評価
         # 
@@ -283,8 +300,9 @@ if conf.do_eval:
         # - F1: トークンが一致した割合のF1値
 
         results = squad_evaluate(examples, predictions)
-        print(f"EM: {results['exact']}\nF1: {results['f1']}")
-        with open(f'{conf.output_dir}/test_qa_summary.txt', 'a') as f:
+        print(f"QA-EM: {results['exact']}\nQA-F1: {results['f1']}")
+#        with open(f'{conf.output_dir}/test_qa_summary.txt', 'a') as f:
+        with open(f'{conf.result_dir}/test_qa_summary.txt', 'a') as f:
             f.write(f"QA-EM: {results['exact']}\nQA-F1: {results['f1']}")
 
     # 後始末
